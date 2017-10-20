@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -e            # fail fast
+set -o pipefail   # don't ignore exit codes when piping output
+
+# Configure directories
+build_dir=$1
+cache_dir=$2
+env_dir=$3
+keytool_path=$(which keytool)
+
+blacklist_regex=${3:-'^(PATH|GIT_DIR|CPATH|CPPATH|LD_PRELOAD|LIBRARY_PATH)$'}
+if [ -d "$env_dir" ]; then
+  for e in $(ls $env_dir); do
+    echo "$e" | grep -qvE "$blacklist_regex" &&
+      export "$e=$(cat $env_dir/$e)"
+    :
+  done
+fi
+
+if [ -z "$PKCS12_CERT_URL" ]; then
+  echo "PKCS12_CERT_URL has not been set"
+  echo "You can set it with:"
+  echo 'heroku config:set PKCS12_CERT_URL="https://PKCS12_CERT_URL/"'
+  exit 0
+fi
+
+if [ -z "$PKCS12_CERT_PASSWORD" ]; then
+  echo "PKCS12_CERT_PASSWORD has not been set"
+  echo "You can set it with:"
+  echo 'heroku config:set PKCS12_CERT_PASSWORD="CERTIFICATE PASSW0RD"'
+  exit 0
+fi
+
+cd $build_dir
+mkdir keystore
+cd keystore
+curl -o pkcs12_cert.pfx $PKCS12_CERT_URL
+
+/bin/sh -c "/$keytool_path -importkeystore -srckeystore pkcs12_cert.pfx -srcstorepass $PKCS12_CERT_PASSWORD -srcstoretype pkcs12 -destkeystore java_app_keystore.jks -deststorepass $PKCS12_CERT_PASSWORD -deststoretype JKS"
+
+rm pkcs12_cert.pfx

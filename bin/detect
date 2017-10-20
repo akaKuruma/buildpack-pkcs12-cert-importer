@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# bin/detect <build-dir>
+
+build_dir=$1
+
+if (test -d $build_dir/target) then
+  echo "Target directory exists."
+  exit 0
+else
+  echo "Target directory does not exists."
+  exit 1
+fi
